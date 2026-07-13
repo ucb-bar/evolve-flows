@@ -1,0 +1,4 @@
+[submodule "skydiscover"]
+	path = skydiscover
+	url = git@github.com:ucb-bar/skydiscover.git
+	branch = public-release-v1

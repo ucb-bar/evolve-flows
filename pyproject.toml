@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evolve-flows"
+version = "0.1.0"
+description = "CHIA integration layer for skydiscover evolutionary search"
+requires-python = ">=3.10"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+dependencies = [
+    "ray",
+    "pyyaml",
+    "litellm",
+]
+
+[project.urls]
+Repository = "https://github.com/ucb-bar/evolve-flows"
+
+[tool.setuptools.packages.find]
+include = ["evolve_flows*"]
