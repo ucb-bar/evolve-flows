@@ -2,6 +2,7 @@
 
 import ast
 import asyncio
+import importlib
 import os
 from unittest.mock import MagicMock, patch
 
@@ -9,7 +10,10 @@ import pytest
 
 from evolve_flows.evolver import bridge
 from evolve_flows.evolver.bridge import (
+    _EVALUATOR_REGISTRY,
     _guard_signal_handlers,
+    _is_external_search,
+    _write_chia_evaluator_shim,
     _write_dummy_evaluator,
     run_skydiscover,
 )
@@ -123,3 +127,82 @@ class TestRunSkydiscover:
 
         mock_run.assert_called_once()
         assert result is sentinel
+
+
+class TestChiaEvaluatorShim:
+    """The evaluator shim delegates evaluate(path) to a registered ChiaEvaluator."""
+
+    def test_shim_is_valid_python(self) -> None:
+        path = _write_chia_evaluator_shim("test-key")
+        try:
+            with open(path) as f:
+                contents = f.read()
+            ast.parse(contents)
+            assert "def evaluate" in contents
+        finally:
+            os.unlink(path)
+
+    def test_shim_calls_evaluate_program(self, tmp_path) -> None:
+        """The shim reads source from file and calls evaluator.evaluate_program."""
+        from skydiscover.evaluation.evaluation_result import EvaluationResult
+
+        mock_eval = MagicMock()
+        expected_result = EvaluationResult(
+            metrics={"combined_score": 1.5, "ipc": 1.5},
+        )
+        async def _fake_eval(src):
+            return expected_result
+
+        mock_eval.evaluate_program = _fake_eval
+
+        key = "test-shim-call"
+        _EVALUATOR_REGISTRY[key] = mock_eval
+        shim_path = _write_chia_evaluator_shim(key)
+
+        program_file = tmp_path / "candidate.cc"
+        program_file.write_text("int main() {}")
+
+        try:
+            spec = importlib.util.spec_from_file_location("_shim", shim_path)
+            shim_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(shim_mod)
+
+            result = shim_mod.evaluate(str(program_file))
+            assert result["combined_score"] == 1.5
+        finally:
+            _EVALUATOR_REGISTRY.pop(key, None)
+            os.unlink(shim_path)
+
+    def test_shim_missing_evaluator_returns_zero(self, tmp_path) -> None:
+        """When the registry key is gone, the shim returns score 0."""
+        key = "missing-key"
+        shim_path = _write_chia_evaluator_shim(key)
+
+        program_file = tmp_path / "candidate.cc"
+        program_file.write_text("int main() {}")
+
+        try:
+            spec = importlib.util.spec_from_file_location("_shim2", shim_path)
+            shim_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(shim_mod)
+
+            result = shim_mod.evaluate(str(program_file))
+            assert result["combined_score"] == 0.0
+        finally:
+            os.unlink(shim_path)
+
+
+class TestIsExternalSearch:
+    """_is_external_search correctly identifies external backends."""
+
+    def test_known_external_when_registered(self) -> None:
+        """Simulate a registered external backend."""
+        with patch("skydiscover.extras.external.is_external", return_value=True):
+            assert _is_external_search("alphaevolve") is True
+
+    def test_native_search(self) -> None:
+        assert _is_external_search("adaevolve") is False
+        assert _is_external_search("topk") is False
+
+    def test_unknown_search(self) -> None:
+        assert _is_external_search("nonexistent_backend_xyz") is False

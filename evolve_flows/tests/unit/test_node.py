@@ -78,10 +78,11 @@ class TestGetStatus:
             "iteration": 0,
             "best_score": 0.0,
             "best_metrics": None,
+            "best_program": None,
         }
 
     def test_status_keys(self) -> None:
-        """get_status exposes exactly the four documented keys."""
+        """get_status exposes exactly the documented keys."""
         node = NodeClass()
         status = node.get_status()
         assert isinstance(status, dict)
@@ -90,6 +91,7 @@ class TestGetStatus:
             "iteration",
             "best_score",
             "best_metrics",
+            "best_program",
         }
 
 
@@ -105,7 +107,7 @@ class TestStop:
 
 
 class TestRunEvolver:
-    """run_evolver is the @ChiaFunction CHIA-native search entry point (CE-01)."""
+    """run_evolver is the @ChiaFunction CHIA-native search entry point."""
 
     def test_is_chia_function(self) -> None:
         """run_evolver carries the ChiaFunction dispatch surface."""
@@ -144,6 +146,18 @@ class TestRunEvolver:
             run_evolver._chia_original(
                 evolver_input, MagicMock(), MagicMock(), MagicMock()
             )
+
+
+class TestLoggingSetup:
+    """EvolverNode.__init__ configures logging for the Ray actor process."""
+
+    def test_logging_configured_on_init(self) -> None:
+        """basicConfig(force=True) ensures at least one root handler exists."""
+        import logging
+
+        node = NodeClass()
+        root = logging.getLogger()
+        assert len(root.handlers) > 0, "EvolverNode.__init__ should configure logging"
 
 
 class TestResourceTag:

@@ -1,0 +1,76 @@
+# Simple CHIA cluster for AlphaEvolve prefetcher example.
+# All workers on a single head node: 1 build + 5 run + 1 evolver.
+
+cluster_name: adaevolve-prefetcher-simple
+
+available_node_types:
+    champsim_build:
+        resources: {"champsim_build": 1.0}
+        num_workers: 1
+        worker_env_commands:
+            - "export PATH=/home/ray/anaconda3/bin:$PATH"
+        docker:
+            image: "ghcr.io/ucb-bar/chia-champsim:latest"
+            container_name: "chia-champsim-build"
+            pull_before_run: true
+            run_options:
+                - --ulimit nofile=65536:65536
+                - --shm-size=10.24gb
+                - --cpuset-cpus=0-7
+                - -v /nscratch:/nscratch:ro
+        compatible_ips: [HEAD_NODE]
+
+    champsim:
+        resources: {"champsim": 1.0}
+        num_workers: 5
+        worker_env_commands:
+            - "export PATH=/home/ray/anaconda3/bin:$PATH"
+        docker:
+            image: "ghcr.io/ucb-bar/chia-champsim:latest"
+            container_name: "chia-champsim-run"
+            pull_before_run: true
+            run_options:
+                - --ulimit nofile=65536:65536
+                - --shm-size=10.24gb
+                - -v /nscratch:/nscratch:ro
+        compatible_ips: [HEAD_NODE]
+
+    evolver:
+        resources: {"evolver": 1.0}
+        num_workers: 1
+        worker_env_commands:
+            - "source ~/.bashrc && conda activate chia_env"
+        compatible_ips: [HEAD_NODE]
+
+provider:
+    head_ip: HEAD_NODE
+
+auth:
+    ssh_user: YOUR_USERNAME
+    ssh_private_key: ~/.ssh/id_ed25519
+
+file_mounts: {}
+
+rsync_exclude:
+    - "**/.git"
+    - "**/.git/**"
+
+rsync_filter:
+    - ".gitignore"
+
+initialization_commands: []
+
+setup_commands: []
+
+head_env_commands:
+    - "source ~/.bashrc && conda activate chia_env"
+
+head_setup_commands: []
+
+head_start_ray_commands:
+    - ray stop
+    - ulimit -c unlimited && ray start --head --port=6379 --include-dashboard=True
+
+worker_start_ray_commands:
+    - ray stop
+    - ray start --address=$RAY_HEAD_IP:6379
