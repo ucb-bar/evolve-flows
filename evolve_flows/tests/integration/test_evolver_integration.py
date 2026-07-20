@@ -1,4 +1,4 @@
-"""Integration tests: full skydiscover loop inside a real local Ray runtime (CT-03).
+"""Integration tests: full skydiscover loop inside a real local Ray runtime.
 
 Two full-loop tests run ``run_skydiscover`` inside a ``@ray.remote`` task (so the
 search executes in a Ray worker process), and one lightweight test exercises the
@@ -159,10 +159,10 @@ def _run_in_ray(
 
 
 class TestEvolverInRay:
-    """Full skydiscover loop inside Ray with trivial local callables (CT-03)."""
+    """Full skydiscover loop inside Ray with trivial local callables."""
 
     def test_full_loop_direct_evaluator(self, ray_env: Any, tmp_path: Any) -> None:
-        """5+ iterations complete inside Ray and return a valid EvolverResult (D-07)."""
+        """5+ iterations complete inside Ray and return a valid EvolverResult."""
         config_path = write_test_config(tmp_path, max_iterations=MAX_ITERATIONS)
 
         result = ray.get(
@@ -194,7 +194,7 @@ class TestEvolverInRay:
             assert "solution" in program
 
     def test_full_loop_chia_evaluator_path(self, ray_env: Any, tmp_path: Any) -> None:
-        """Same loop, plus validation of the ChiaEvaluator JSONL log artifact (D-07)."""
+        """Same loop, plus validation of the ChiaEvaluator JSONL log artifact."""
         config_path = write_test_config(tmp_path, max_iterations=MAX_ITERATIONS)
 
         result = ray.get(
@@ -237,7 +237,7 @@ def _patch_llm_pool_on_worker(fake_cls: type) -> None:
 
 
 class TestRunEvolverInRay:
-    """run_evolver.chia_remote() dispatches through the real CHIA trampoline (CE-01)."""
+    """run_evolver.chia_remote() dispatches through the real CHIA trampoline."""
 
     def test_run_evolver_chia_remote(self, ray_env: Any, tmp_path: Any) -> None:
         """Real .chia_remote() dispatch against a cluster advertising 'evolver'."""

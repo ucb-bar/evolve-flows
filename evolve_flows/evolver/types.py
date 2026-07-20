@@ -41,3 +41,4 @@ class EvolverStatus:
     iteration: int = 0
     best_score: float = 0.0
     best_metrics: Optional[Dict[str, Any]] = None
+    best_program: Optional[str] = None

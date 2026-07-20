@@ -50,6 +50,7 @@ class EvolverNode:
     """
 
     def __init__(self) -> None:
+        logging.basicConfig(level=logging.INFO, force=True)
         self._status = EvolverStatus(state="idle")
         self._stop_requested = False
         self._result: Optional[EvolverResult] = None
@@ -137,6 +138,7 @@ class EvolverNode:
             "iteration": self._status.iteration,
             "best_score": self._status.best_score,
             "best_metrics": self._status.best_metrics,
+            "best_program": self._status.best_program,
         }
 
     def stop(self) -> None:

@@ -1,0 +1,147 @@
+# AdaEvolve config for ChampSim L2C prefetcher evolution (simplified).
+# Gemini via OpenAI-compatible endpoint.  Evaluator settings are
+# ignored -- ChiaEvaluator replaces the built-in evaluator at runtime.
+#
+# Usage:  python run_flow.py --config config_adaevolve.yaml
+
+max_iterations: 10        # programs to evaluate (AlphaEvolve: max_programs_evaluated)
+log_level: "INFO"
+file_suffix: ".cc"
+checkpoint_interval: 5
+random_seed: 42
+
+llm:
+  models:
+    - name: "gemini-3.5-flash"
+      weight: 1.0
+    - name: "gemini-3.1-pro-preview"
+      weight: 1.0
+  guide_models:
+    - name: "gemini-3.1-pro-preview"
+  api_base: "https://generativelanguage.googleapis.com/v1beta/openai/"
+  api_key: ${GEMINI_API_KEY}
+  temperature: 0.7
+  max_tokens: 32000
+  timeout: 600
+
+search:
+  type: "adaevolve"
+  num_context_programs: 4
+  database:
+    population_size: 10
+    num_islands: 1
+    decay: 0.9
+    intensity_min: 0.15
+    intensity_max: 0.5
+    use_adaptive_search: true
+    use_ucb_selection: true
+    use_migration: false
+    use_unified_archive: true
+    fitness_weight: 1.0
+    novelty_weight: 0.0
+    diversity_strategy: "code"
+    use_dynamic_islands: false
+    use_paradigm_breakthrough: false
+    enable_error_retry: true
+    max_error_retries: 2
+
+prompt:
+  system_message: |
+    You are an expert computer architect designing hardware data prefetchers
+    for the ChampSim simulator.  Your goal is to maximize Instructions Per
+    Cycle (IPC) across SPEC CPU 2017 benchmarks (gcc, mcf, xalancbmk) by
+    evolving a C++ L2 cache (L2C) prefetcher module.
+
+    ## ChampSim Prefetcher API
+
+    Your code must define a single struct that inherits from
+    `champsim::modules::prefetcher` and implements these methods:
+
+    ```cpp
+    #include <cstdint>
+    #include "address.h"
+    #include "modules.h"
+
+    struct evolved_pf : public champsim::modules::prefetcher {
+      using prefetcher::prefetcher;
+
+      // Called on every L2C access.  Issue prefetches here.
+      uint32_t prefetcher_cache_operate(
+          champsim::address addr,      // cache-line-aligned address
+          champsim::address ip,        // instruction pointer that caused access
+          uint8_t cache_hit,           // 1 if hit, 0 if miss
+          bool useful_prefetch,        // true if this access was a useful prefetch
+          access_type type,            // LOAD, RFO, PREFETCH, WRITE, TRANSLATION
+          uint32_t metadata_in);       // metadata from lower cache
+
+      // Called when a line is filled into L2C.
+      uint32_t prefetcher_cache_fill(
+          champsim::address addr,
+          long set, long way,
+          uint8_t prefetch,            // 1 if this fill was a prefetch
+          champsim::address evicted_addr,
+          uint32_t metadata_in);
+
+      // Optional hooks (uncomment to use):
+      // void prefetcher_initialize();
+      // void prefetcher_cycle_operate();
+      // void prefetcher_final_stats();
+    };
+    ```
+
+    ## Key API Methods
+
+    - `prefetch_line(champsim::address pf_addr, bool fill_this_level, uint32_t metadata)`
+      Issues a prefetch.  pf_addr must be a full address (use `champsim::address{block_number}`
+      to convert).  Returns true if accepted by the prefetch queue.
+    - `champsim::block_number{addr}` -- extracts the cache block number from an address.
+    - `champsim::address{block_number}` -- converts a block number back to an address.
+
+    ## Struct name
+
+    The struct MUST be named `evolved_pf`.  This is the module name used by
+    the build system.
+
+    ## Output format
+
+    Return ONLY the complete C++ source file.  Include all necessary headers.
+    The file will be compiled as `evolved_pf.cc` in `prefetcher/evolved_pf/`.
+
+    ## Optimization objectives (maximize combined_score = geomean IPC)
+
+    - **IPC** (instructions per cycle) -- primary metric, higher is better
+    - **Prefetch accuracy** -- useful / issued, higher means less wasted bandwidth
+    - **Prefetch coverage** -- useful / (useful + demand_misses), higher means fewer misses
+    - **MPKI** (misses per kilo instructions) -- lower is better
+
+    ## Techniques to explore
+
+    - Stride detection (fixed and variable stride patterns)
+    - Spatial locality (adjacent/region-based prefetching)
+    - Temporal correlation (history-based pattern matching)
+    - IP-based learning (per-instruction prefetch behavior)
+    - Markov chains (address transition prediction)
+    - Best-offset prefetching (dynamically selecting prefetch distance)
+    - Composite approaches (combining multiple strategies with confidence)
+    - Adaptive throttling (reduce prefetching when accuracy drops)
+
+    ## Constraints
+
+    - Pure C++17, no external libraries beyond ChampSim headers
+    - Keep data structures reasonably sized (< 64KB total state)
+    - Must compile with g++ -std=c++17
+    - Simulation uses 5M warmup + 25M simulation instructions per trace
+
+# Evaluator section -- NOT USED (ChiaEvaluator replaces at runtime)
+evaluator:
+  timeout: 360
+  max_retries: 3
+
+monitor:
+  enabled: true
+  host: "127.0.0.1"
+  port: 8765
+
+diff_based_generation: true
+max_solution_length: 60000
+max_parallel_iterations: 3
