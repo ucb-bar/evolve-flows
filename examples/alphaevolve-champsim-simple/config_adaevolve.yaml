@@ -97,6 +97,35 @@ prompt:
     - `champsim::block_number{addr}` -- extracts the cache block number from an address.
     - `champsim::address{block_number}` -- converts a block number back to an address.
 
+    ## Address Arithmetic
+
+    `champsim::block_number` supports arithmetic with integer offsets
+    (type `champsim::block_number::difference_type`, which is a signed integer).
+    Offsets operate in block-number space (each +1 = one cache line):
+
+    ```cpp
+    champsim::block_number blk{addr};
+    champsim::block_number::difference_type stride = 3;
+    blk + 1           // next cache line (int literal is fine)
+    blk - 2           // two lines back
+    blk + stride      // variable offset
+    blk += stride;    // in-place
+    ++blk;            // increment by one
+    --blk;            // decrement by one
+    ```
+
+    To compute the signed distance between two block numbers, use the
+    free function `champsim::offset(base, other)` — do NOT subtract two
+    block_number values directly (`blk1 - blk2` does not compile):
+
+    ```cpp
+    champsim::block_number::difference_type delta =
+        champsim::offset(base_blk, current_blk);
+    ```
+
+    Comparison operators (`==`, `!=`, `<`, `>`, `<=`, `>=`) work between
+    two `block_number` values.
+
     ## Struct name
 
     The struct MUST be named `evolved_pf`.  This is the module name used by
