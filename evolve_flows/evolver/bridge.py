@@ -173,8 +173,10 @@ async def _run_external_search(
     _best_score = [0.0]
     _best_metrics: Dict[str, Any] = {}
     _best_program = [""]
+    _eval_count = [0]
 
     def _monitor_cb(program: Any, iteration: int) -> None:
+        _eval_count[0] = max(_eval_count[0], iteration)
         score = get_score(program.metrics) if program and program.metrics else 0.0
         if score > _best_score[0]:
             _best_score[0] = score
@@ -182,6 +184,7 @@ async def _run_external_search(
             _best_program[0] = program.solution if program else ""
 
     def _status_from_eval(evaluated: int) -> None:
+        _eval_count[0] = max(_eval_count[0], evaluated)
         if status_callback:
             status_callback(EvolverStatus(
                 state="running",
@@ -204,15 +207,16 @@ async def _run_external_search(
             status_callback=_status_from_eval,
         )
 
-        best_code = result.best_solution or ""
-        metrics = dict(result.metrics) if result.metrics else {}
-        best_score = result.best_score
+        best_code = result.best_solution or _best_program[0] or ""
+        metrics = dict(result.metrics) if result.metrics else dict(_best_metrics)
+        best_score = result.best_score if result.best_score else _best_score[0]
+        iteration_count = _eval_count[0]
         log_path = getattr(chia_evaluator, "_log_path", None)
 
         if status_callback:
             status_callback(EvolverStatus(
                 state="completed",
-                iteration=0,
+                iteration=iteration_count,
                 best_score=best_score,
                 best_metrics=metrics,
                 best_program=best_code,
@@ -221,7 +225,7 @@ async def _run_external_search(
         return EvolverResult(
             best_program=best_code,
             best_metrics=metrics,
-            iteration_count=0,
+            iteration_count=iteration_count,
             terminal_status=_TERMINAL_COMPLETED,
             population=[],
             metrics_log_path=log_path,

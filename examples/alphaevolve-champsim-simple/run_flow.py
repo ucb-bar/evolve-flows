@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import ray
+import yaml
 
 from champsim_evaluator import ChampSimEvaluator
 from chia.simulators.champsim import ChampSimNode
@@ -187,8 +188,11 @@ def run_flow(
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
 
+    parsed_config = yaml.safe_load(config_content)
     logger.info(
-        "Launching AlphaEvolve search: config=%s, max_iterations=50", config_path
+        "Launching AlphaEvolve search: config=%s, max_iterations=%s",
+        config_path,
+        parsed_config.get("max_iterations", "?"),
     )
     result_ref = evolver.run_search.remote(
         evolver_input,
